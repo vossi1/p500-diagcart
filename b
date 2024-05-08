@@ -1,2 +1,2 @@
 #!/bin/sh
-acme -Wtype-mismatch -r cbm2diag.b
+acme -Wtype-mismatch p500diag.b
