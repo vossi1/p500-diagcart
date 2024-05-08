@@ -113,6 +113,7 @@ Start:	sei
 	ldx #$ff			; fix stack init 		******** PATCHED ********
 	txs				; reset stack pointer
 	cld
+; init vic
 	ldx #$11			; init vic regs $21-$11
 	ldy #$21
 viclp:	lda VicInitValues-1,x
@@ -120,6 +121,13 @@ viclp:	lda VicInitValues-1,x
 	dey
 	dex
 	bne viclp
+; init tpi1+2 vic select
+	lda tpi1+CR
+	ora #$f0			; set bit#5,4=11 CA=high -> Video matrix in bank f
+	sta tpi1+CR			; set bit#7,6=11 CB=high -> Characterset in bank f 
+	lda #$c0
+	sta tpi2+PC			; VIC 16k bank select=11 $c000-$ffff
+	sta tpi2+DDPC			; dir input: #0-5 keyboard / output: #6-7 VIC 16k bank
 	jmp Init
 ; ----------------------------------------------------------------------------
 ; vic init values regs $11-$21 
@@ -135,7 +143,7 @@ clrlp:  lda #" "
 	sta ScreenRAM+$100,x
 	sta ScreenRAM+$200,x
 	sta ScreenRAM+$300,x
-	lda #WHITE
+	lda #TEXTCOL
 	sta ColorRAM,x
 	sta ColorRAM+$100,x
 	sta ColorRAM+$200,x
@@ -262,18 +270,14 @@ statclp:txa
 	bne statlp			; next byte
 	inc pointer1+1			; inc page
 	lda pointer1+1
-!ifdef STATICFULL{
 	cmp #$08			; test full 2kB static RAM		******** PATCHED ********
-} else{
-	cmp #$04			; original tests only 4 pages = 1kB
-}
 	bne statlp			; next page
 	lda #$00
 	sta pointer1
 	ldx #$01			; start at $0100
 	stx pointer1+1
 	ldy #$00
-stacklp:  tya
+stacklp:tya
 	clc
 	adc pointer1+1
 	cmp (pointer1),y		; check stored address values
@@ -316,6 +320,7 @@ MainTest:
 	lda #$10
 	sta unused			; never used
 	jsr TestVideoRam
+	jsr TestColorRam
 	jsr TestRoms
 	jsr TestKeyboard
 	jsr TestRS232
@@ -326,8 +331,8 @@ MainTest:
 	jsr TestInterrupt
 	jsr TestDram
 	jsr TestSoundchip
-	lda #5
-	jsr Delay			; delay sub 5x
+	lda #3
+	jsr Delay			; delay sub 3x
 	jsr IncCounterClearScreen
 	jmp TestZeropage
 ; ----------------------------------------------------------------------------
@@ -355,7 +360,7 @@ vidcnlp:txa
 	bne vidlp			; next byte
 	inc pointer1+1			; inc page
 	lda pointer1+1
-	cmp #>(ScreenRAM+$800)		; video ram end ?
+	cmp #>(ScreenRAM+$400)		; video ram end ?
 	bne vidlp			; next page
 	jsr PrintOK
 	jsr AddLine
@@ -366,6 +371,44 @@ videndl:clc				; count faulty screen byte up
 	adc #$01
 	sta (pointer1),y
 	jmp videndl			; endless
+; ----------------------------------------------------------------------------
+; test color ram
+TestColorRam:
+	ldx #>TextColorRam
+	ldy #<TextColorRam
+	jsr PrintText			; print "color ram"
+	ldy #<ColorRAM			; set start address
+	sty pointer1
+	lda #>ColorRAM
+	sta pointer1+1
+collp:	lda (pointer1),y		; load old value
+	sta temp2			; remember
+	ldx #$00
+colcnlp:txa
+	sta (pointer1),y
+	eor (pointer1),y
+	and #$0f			; isolate low nibble
+	bne colbad			; -> bad
+	inx
+	cpx #$10			; reached color $0f ?
+	bne colcnlp			; count byte up
+	lda temp2
+	sta (pointer1),y		; restore byte
+	iny
+	bne collp			; next byte
+	inc pointer1+1			; inc page
+	lda pointer1+1
+	cmp #>(ColorRAM+$400)		; color ram end ?
+	bne collp			; next page
+	jsr PrintOK			; print ok
+	jsr AddLine
+	rts
+; color ram bad
+colbad: jsr PrintBad
+colendl:clc				; count faulty color byte up
+	adc #$01
+	sta (pointer1),y
+	jmp colendl			; endless
 ; ----------------------------------------------------------------------------
 ; ROM test tables
 RomStartHigh:	!byte $80, $a0, $e0
@@ -429,8 +472,10 @@ TestKeyboard:
 	ldy #<TextKeypoard
 	jsr PrintText			; print "keyboard"
 	ldy #$00
-	sty tpi2+DDPA			; all tpi2 ports input
+	sty tpi2+DDPA			; tpi2 ports1+b input
 	sty tpi2+DDPB
+	ldy tpi2+DDPC
+	and #$c0			; tpi2 portc bit 0-5 input
 	sty tpi2+DDPC
 	ldx #$01
 kportlp:lda #$3f
@@ -804,7 +849,7 @@ TestInterrupt:
 	sta nminv
 	lda tpi1+CR
 	and #$fd
-	ora #$31
+	ora #$01			; set mode=1 (interrupt controller) 
 	sta tpi1+CR
 	lda tpi1+DDPC
 	ora #$04
@@ -901,7 +946,7 @@ IRQHandler2:
 ; ----------------------------------------------------------------------------
 ; test dram segments (banks)
 TestDram:
-	lda #$01			; start with bank 1
+	lda #$00			; start with bank 0
 	sta TestBank
 banklp:	ldx #>TextDram
 	ldy #<TextDram
@@ -1039,7 +1084,7 @@ sndsub:	sta sid+OSC1+OSCCTL
 	sta sid+OSC1+SUSREL
 	sta sid+OSC3+OSCCTL
 	lda #1
-	jsr Delay			; delay sub 1x
+	jsr SoundDelay			; delay sub 0.5x
 	lda #$00
 	sta sid+OSC1+OSCCTL
 	sta sid+OSC1+SUSREL
@@ -1124,7 +1169,7 @@ PrintDatabits:
 AddLine:
 	clc
 	lda pointer_screen
-	adc #80
+	adc #40
 	sta pointer_screen
 	lda pointer_screen+1
 	adc #$00
@@ -1198,10 +1243,6 @@ clrsclp:sta ScreenRAM+2*40,x
 	sta ScreenRAM+$100,x
 	sta ScreenRAM+$200,x
 	sta ScreenRAM+$300,x
-	sta ScreenRAM+$400,x
-	sta ScreenRAM+$500,x
-	sta ScreenRAM+$600,x
-	sta ScreenRAM+$700,x
 	inx
 	bne clrsclp
 	rts
@@ -1217,6 +1258,11 @@ delaylp:dex
 	sbc #$01			; a times
 	bne delaylp
 	rts
+; delay for sound 0.5x
+SoundDelay:
+	ldx #$ff
+	ldy #$7f
+	bne delaylp			; always
 ; ----------------------------------------------------------------------------
 ; print dram bad address
 PrintAddress:
@@ -1247,9 +1293,9 @@ TextCycles:	!scr "  CYCLE "
 Text000001:	!scr "  000001"
 
 TextZeropage:	!scr " ZEROPAGE        "
-		!scr " STACKPAGE       "	; not used
 TextStaticRam:	!scr " STATIC RAM 2KB  "	; enhanced full 2kB test
 TextVideoRam:	!scr " VIDEO  RAM      "
+TextColorRam:	!scr " COLOR  RAM      "
 TextBasicRomL:	!scr " BASIC  ROM (L)  "
 TextBasicRomH:	!scr " BASIC  ROM (H)  "
 TextKernalRom:	!scr " KERNAL ROM      "
@@ -1259,7 +1305,6 @@ TextUserPort:	!scr " USER PORT       "
 TextRS232:	!scr " RS-232          "
 TextCassette:	!scr " CASSETTE        "
 TextSoundchip:	!scr " SOUND CHIP      "
-		!scr " VIC   CHIP      "
 TextDram:	!scr " DRAM SEGMENT    "
 TextTimers:	!scr " TIMERS          "
 TextInterrupt:	!scr " INTERRUPT       "
