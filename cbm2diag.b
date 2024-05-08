@@ -1,12 +1,9 @@
-; cbm2 diagnostic-cart 324835-01
-; disassembled by Vossi 05/2024, fixed/enhanced 05/2024
+; p500 diagnostic-cart based on 324835-01
+; Vossi 05/2024
 ; assemble with ACME
 !cpu 6502
 !ct scr		; standard text/char conversion table -> Screencode (pet = PETSCII, raw)
-!to "cbm2diag.bin", plain
-; * switches
-STACKINITFIX	= 1	; Fixes stack init 
-STATICFULL	= 1	; Tests full 2kB static RAM
+!to "p500diag.bin", plain
 ; ***************************************** CONSTANTS *********************************************
 FILL			= $ff		; fills free memory areas with $ff
 SYSTEMBANK		= $0f		; systembank
@@ -104,11 +101,7 @@ VOLUME			= $18		; volume
 Start:	sei
 	lda #SYSTEMBANK
 	sta IndirectBank
-!ifdef STACKINITFIX{
 	ldx #$ff			; fix stack init 		******** PATCHED ********
-} else{
-	ldx $ff				; ************ BUG ???????????????
-}
 	txs				; reset stack pointer
 	cld
 	ldy #$11			; 18 VDC register
@@ -316,11 +309,7 @@ stacklp:  tya
 	bne stacklp			; next byte
 	inx
 	stx pointer1+1
-!ifdef STATICFULL{
 	cpx #$08			; check full 2kB static RAM		******** PATCHED ********
-} else{
-	cpx #$04			; original checks only 4 pages = 1kB
-}
 	bne stacklp			; next page
 	ldx #$03
 staoklp:lda TextOK,x			; static ram ok
@@ -1290,11 +1279,7 @@ Text000001:	!scr "  000001"
 
 TextZeropage:	!scr " ZEROPAGE        "
 		!scr " STACKPAGE       "	; not used
-!ifdef STATICFULL{
 TextStaticRam:	!scr " STATIC RAM 2KB  "	; enhanced full 2kB test
-} else{
-TextStaticRam:	!scr " STATIC RAM      "
-}
 TextVideoRam:	!scr " VIDEO  RAM      "
 TextBasicRomL:	!scr " BASIC  ROM (L)  "
 TextBasicRomH:	!scr " BASIC  ROM (H)  "
