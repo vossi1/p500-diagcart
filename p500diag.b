@@ -154,7 +154,7 @@ clrlp:  lda #" "
 	ldx #$02			; minimum 2 banks / 128kB: testbank = 2
 	stx RamEnd			; store last ram bank +1
 	stx IndirectBank		; indirect bank=2
-	ldx #33				; title text length
+	ldx #39				; title text length
 	lda #$60			; test at address $xx60
 	sta temp2
 	lda #$a5			; test value
@@ -175,24 +175,31 @@ ram128: lda Title128,x			; title 128k
 	sta ScreenRAM,x
 	dex
 	bne ram128
-	beq Cycles			; always
+	beq prver			; always
 ; print title 256k
 ram256: lda Title256,x			; title 256k
 	and #$bf
 	sta ScreenRAM,x
 	dex
 	bne ram256
+; print version
+prver:	ldx #15
+prverlp:lda TextVersion,x		; version
+	and #$bf
+	sta ScreenRAM+1*40+23,x
+	dex
+	bne prverlp
 ; print cycles
 Cycles:	lda #SYSTEMBANK
 	sta IndirectBank		; indirect = systembank
-	ldx #$08			; text length
+	ldx #8				; text length
 prcyclp:lda TextCycles,x		; print "CYCLES"
 	and #$bf
 	sta ScreenRAM+1*40,x
 	lda Text000001,x		; print "000001"
 	and #$bf
 	ora #$80			; inverse
-	sta ScreenRAM+1*40+16,x
+	sta ScreenRAM+1*40+10,x
 	dex
 	bne prcyclp
 ; test zeropage
@@ -323,12 +330,12 @@ MainTest:
 	jsr TestColorRam
 	jsr TestRoms
 	jsr TestKeyboard
-	jsr TestRS232
+;	jsr TestRS232
 	jsr TestCassette
 	jsr TestUserPort
 	jsr TestIeeePort
 	jsr TestTimers
-	jsr TestInterrupt
+;	jsr TestInterrupt
 	jsr TestDram
 	jsr TestSoundchip
 	lda #3
@@ -1152,12 +1159,6 @@ PrintDatabits:
 	jsr StoreDatabits		; store databits to $0010
 	jsr PrintBad			; print bad
 	lda #24
-	jsr AddChars			; add 24 chars
-	ldx #>TextDatabits
-	ldy #<TextDatabits
-	lda #$08
-	jsr PrintTexta			; print "databits"
-	lda #35
 	jsr AddChars			; add 35 chars
 	ldx #>databits
 	ldy #<databits
@@ -1227,13 +1228,13 @@ alpha:	adc #$00
 ; inc counter, clear screen
 IncCounterClearScreen:
 	ldx #$07
-inc10:  inc ScreenRAM+1*40+16,x
-	lda ScreenRAM+1*40+16,x
+inc10:  inc ScreenRAM+1*40+10,x
+	lda ScreenRAM+1*40+10,x
 	and #$7f			; non inverse
 	cmp #$3a			; >0
 	bcc clrscr			; no overflow
 	lda #$b0
-	sta ScreenRAM+1*40+16,x		; inverse 0
+	sta ScreenRAM+1*40+10,x		; inverse 0
 	dex
 	bpl inc10			; next higher number
 	bmi IncCounterClearScreen	; max cycles -> endless loop
@@ -1266,17 +1267,17 @@ SoundDelay:
 ; ----------------------------------------------------------------------------
 ; print dram bad address
 PrintAddress:
-	lda #45
-	jsr AddChars			; add 45 chard
+	lda #32
+	jsr AddChars			; add 31 chard
 	ldx #>TextAddress
 	ldy #<TextAddress
-	lda #8
+	lda #1
 	jsr PrintTexta			; print "address"
-	lda #55
+	lda #35
 	jsr AddChars			; add 5 chars
 	lda pointer1+1
 	jsr PrintByteHex		; print low byte
-	lda #57
+	lda #37
 	jsr AddChars			; add 57 chars
 	lda pointer1
 	jsr PrintByteHex		; print high byte
@@ -1284,18 +1285,17 @@ PrintAddress:
 ; ************************************* ZONE TABLES ***********************************************
 !zone tables
 ; messages
-Title256:	!scr " COMMODORE P500 (256K) DIAGNOSTIC"
-
-Title128:	!scr " COMMODORE P500 (128K) DIAGNOSTIC"
+Title256:	!scr " COMMODORE P500 (256K) DIAGNOSTIC VOSSI"
+Title128:	!scr " COMMODORE P500 (128K) DIAGNOSTIC VOSSI"
 
 TextCycles:	!scr "  CYCLE "
-
 Text000001:	!scr "  000001"
+TextVersion:	!scr " V. 1.0 (C) 2024"
 
 TextZeropage:	!scr " ZEROPAGE        "
 TextStaticRam:	!scr " STATIC RAM 2KB  "	; enhanced full 2kB test
 TextVideoRam:	!scr " VIDEO  RAM      "
-TextColorRam:	!scr " COLOR  RAM      "
+TextColorRam:	!scr " COLOR  RAM      "	; added for P500
 TextBasicRomL:	!scr " BASIC  ROM (L)  "
 TextBasicRomH:	!scr " BASIC  ROM (H)  "
 TextKernalRom:	!scr " KERNAL ROM      "
@@ -1308,11 +1308,10 @@ TextSoundchip:	!scr " SOUND CHIP      "
 TextDram:	!scr " DRAM SEGMENT    "
 TextTimers:	!scr " TIMERS          "
 TextInterrupt:	!scr " INTERRUPT       "
-TextAddress:	!scr " ADDRESS         "
-TextDatabits:	!scr " DATABITS:       "
+
+TextAddress:	!scr " @"
 
 TextOK:	!scr " OK "
-
 TextBad:!scr " BAD"
 
 HexScreenCode:	!scr "0123456789ABCDEF"
