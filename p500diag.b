@@ -335,7 +335,7 @@ MainTest:
 	jsr TestUserPort
 	jsr TestIeeePort
 	jsr TestTimers
-;	jsr TestInterrupt
+	jsr TestInterrupt
 	jsr TestDram
 	jsr TestSoundchip
 	lda #3
@@ -1044,12 +1044,12 @@ drambad:sty pointer1
 TestSoundchip:
 	ldx #>TextSoundchip
 	ldy #<TextSoundchip
-	jsr PrintText
+	jsr PrintText			; print "sound chip"
 	ldy #$14
-soundlp:lda TestBytesSound,y
-	sta sid+OSC1+FREQLO,y
+sinitlp:lda SidInitValues,y		; init sid register $00-$14
+	sta sid,y
 	dey
-	bpl soundlp
+	bpl sinitlp
 	lda #$0f
 	sta sid+VOLUME
 	lda #$11
@@ -1073,10 +1073,6 @@ sndlp2:	ldy #$00
 sndlp3:	sty sid+FCLOW
 	pha
 	pla
-	pha
-	pla
-	pha
-	pla
 	iny
 	cpy #$80
 	bne sndlp3
@@ -1098,12 +1094,10 @@ sndsub:	sta sid+OSC1+OSCCTL
 	sta sid+OSC3+OSCCTL
 	rts
 ; ----------------------------------------------------------------------------
-; sound test table
-TestBytesSound:	!byte $1c, $d6, $ff, $00, $10, $09, $00, $24
-		!byte $55, $ff, $00, $10, $09, $00, $2b
-; ----------------------------------------------------------------------------
-; not used
-		!byte $34, $ff, $00, $10, $09, $00
+; sid init values regs $00-$14 
+SidInitValues: 	!byte $1c, $d6, $ff, $00, $10, $09, $00, $24
+		!byte $55, $ff, $00, $10, $09, $00, $2b, $34
+		!byte $ff, $00, $10, $09, $00
 ; ----------------------------------------------------------------------------
 ; print text 16 chars
 PrintText:
