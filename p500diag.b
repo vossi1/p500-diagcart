@@ -73,7 +73,7 @@ VOLUME			= $18		; volume
 !addr IndirectBank	= $01		; indirect bank register
 !addr MemZero		= $0000
 !addr databits		= $0010		; databits dram test bad
-!addr tempirq		= $0104		; temp irq handler
+!addr irq_stack_base	= $0104		; base address for irq handler stack modify
 !addr cinv		= $300		; irq vector
 !addr cbinv		= $302		; irq break vector
 !addr nminv		= $304		; nmi vector
@@ -90,8 +90,8 @@ VOLUME			= $18		; volume
 !addr TestBank		= $03		; dram test bank
 !addr machinetype	= $04		; machine type: $40=LP, $80=HP
 !addr temp1		= $05		; temp
-!addr temp5		= $06		; temp irq sub
-!addr temp4		= $07		; temp irq sub
+!addr irq_flag		= $06		; irq test flag
+!addr irq_object	= $07		; irq test object
 !addr temp2		= $08		; temp
 !addr temp3		= $09		; temp
 !addr pointer1		= $0a		; 16bit pointer
@@ -839,90 +839,90 @@ tmrend:	jsr AddLine
 tmrbad:	jsr PrintBad			; print bad
 	jmp tmrend
 ; ----------------------------------------------------------------------------
-; test interrupt
+; test cia interrupts
 TestInterrupt:
 	ldx #>TextInterrupt
 	ldy #<TextInterrupt
 	jsr PrintText			; print "interrupt"
 	lda #<IRQHandler
 	ldx #>IRQHandler
-	stx cinv+1			; set interrrupt handler addresse
+	stx cinv+1			; set interrrupt handler address
 	stx cbinv+1
 	sta cinv
 	sta cbinv
-	lda #<IRQHandler2
-	ldx #>IRQHandler2
-	stx nminv+1			; set nmi handler addresse
+	lda #<NMIHandler
+	ldx #>NMIHandler
+	stx nminv+1			; set nmi handler address
 	sta nminv
 	lda tpi1+CR
 	and #$fd
 	ora #$01			; set mode=1 (interrupt controller) 
 	sta tpi1+CR
-	lda tpi1+DDPC
-	ora #$04
-	sta tpi1+DDPC
-	lda #$01
-	sta temp4
-	lda #$0e
+	lda tpi1+MIR
+	ora #$04			; mask interrupt #2 CIA
+	sta tpi1+MIR
+	lda #$01			; timer A interrupt
+	sta irq_object
+	lda #$0e			; control reg A
 	sta temp2
-	ldy #$04
-	jsr irqsub2
-	ldy #$06
-	asl temp4
-	inc temp2
-	jsr irqsub2
-	asl temp4
+	ldy #$04			; timer A regs 4,5
+	jsr itxtest			; SUB: test interrupt with timer A
+	ldy #$06			; timer B regs 6,7
+	asl irq_object			; select timer B interrupt
+	inc temp2			; select control reg B
+	jsr itxtest			; SUB: test interrupt with timer B
+	asl irq_object			; select TOD alarm interrupt
 	lda #$00
-	sta cia+CRB
+	sta cia+CRB			; select TOD write
 	ldx #$01
-	jsr irqsub1
+	jsr isettod			; SUB: clear TOD
 	lda #$80
-	sta cia+CRB
+	sta cia+CRB			; select ALARM write
 	ldx #$04
-	jsr irqsub1
-	jsr irqsub3
-	lda #2
-	jsr Delay			; delay sub 2x
-	jsr irqsub4
+	jsr isettod			; SUB: set TOD
+	jsr ienable			; SUB: enable ALARM interrupt
+	lda #1
+	jsr Delay			; delay sub 1x
+	jsr itxwait			; wait for interrupt
 	jsr PrintOK			; print ok
 	jsr AddLine
 	rts
-; irq sub1
-irqsub1:lda #$00
+; set TOD
+isettod:lda #$00
 	sta cia+TODHR
 	sta cia+TODMIN
 	sta cia+TODSEC
-	stx cia+TOD10
+	stx cia+TOD10			; set TOD to x 10th
 	rts
-; irq sub2
-irqsub2:lda #$ff
-	sta cia+PRA,y
+; test timer a,b interrupt
+itxtest:lda #$ff			; set timer to $5ff
+	sta cia,y
 	iny
-	lda #$02
-	sta cia+PRA,y
-	jsr irqsub3
-	ldy temp2
-	lda #$89
-	sta cia+PRA,y
-	jsr irqsub4
+	lda #$05
+	sta cia,y
+	jsr ienable			; sub: mask timer irq
+	ldy temp2			; control reg for timer
+	lda #$89			; start one shot timer
+	sta cia,y
+	jsr itxwait
 	rts
-; irq sub3
-irqsub3:lda temp4
-	ora #$80
+; enable timer interrupt
+ienable:lda irq_object
+	ora #$80			; mask timer interrupt
 	sta cia+ICR
 	lda #$00
-	sta temp5
-	cli
+	sta irq_flag			; clear interrupt test flag
+	cli				; enable interrupts
 	rts
-; irq sub4
-irqsub4:lda cia+ICR
-	and temp4
-	beq irqsub4
+; wait for interrupt
+itxwait:lda cia+ICR
+	and irq_object			; isolate interrupt flag
+	beq itxwait			; wait for interrupt
 	lda #$00
 	sta cia+ICR
-	sei
-	lda temp5
-	beq irqbad
+	sei				; disable interrupts
+	lda irq_flag
+	beq irqbad			; still 0 -> no irq
 	clc
 	rts
 ; interrupt bad
@@ -935,20 +935,21 @@ irqbad:	pla
 ; ----------------------------------------------------------------------------
 ; irq test handler
 IRQHandler:
-	lda tpi1+AIR
-	dec temp5
+	lda tpi1+AIR			; load interrupt register
+	dec irq_flag			; set test flag
 	tsx
-	lda tempirq,x
-	ora #$04
-	sta tempirq,x
+	lda irq_stack_base,x
+	ora #$04			; set bit#2 on stack byte
+	sta irq_stack_base,x
 	pla
 	tay
 	pla
 	tax
 	pla
 	rti
-IRQHandler2:
-	dec temp5
+; nmi handler
+NMIHandler:
+	dec irq_flag
 	rti
 ; ----------------------------------------------------------------------------
 ; test dram segments (banks)
