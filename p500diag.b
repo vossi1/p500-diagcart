@@ -7,16 +7,10 @@
 ; ***************************************** CONSTANTS *********************************************
 FILL			= $ff		; fills free memory areas with $ff
 SYSTEMBANK		= $0f		; systembank
-BLACK			= $00		; color codes
 WHITE			= $01
 CYAN			= $03
 BLUE			= $06
-YELLOW			= $07
-ORANGE 			= $08
-LIGHTRED		= $0a
-GRAY1			= $0b
-GRAY2			= $0c
-LIGHTGREEN		= $0d
+;
 TEXTCOL			= BLUE		; Default text color
 BGRCOL			= WHITE		; background color
 EXTCOL			= CYAN		; exterior color
@@ -96,7 +90,6 @@ VOLUME			= $18		; volume
 !addr temp3		= $09		; temp
 !addr pointer1		= $0a		; 16bit pointer
 !addr romsize		= $0c		; rom size in pages
-!addr unused		= $28		; never used
 !addr pointer_screen	= $2a		; 16bit pointer screen text position
 !addr pointer_text	= $2c		; 16bit pointer text
 !addr pointer_screen2	= $2e		; 16bit pointer screen text position
@@ -325,12 +318,11 @@ MainTest:
 	lda #>(ScreenRAM+5*40)
 	sta pointer_screen+1
 	lda #$10
-	sta unused			; never used
 	jsr TestVideoRam
 	jsr TestColorRam
 	jsr TestRoms
 	jsr TestKeyboard
-;	jsr TestRS232
+	jsr TestRS232
 	jsr TestCassette
 	jsr TestUserPort
 	jsr TestIeeePort
@@ -339,7 +331,7 @@ MainTest:
 	jsr TestDram
 	jsr TestSoundchip
 	lda #3
-	jsr Delay			; delay sub 3x
+	jsr Delay			; delay sub 3x	******** PATCHED ********
 	jsr IncCounterClearScreen
 	jmp TestZeropage
 ; ----------------------------------------------------------------------------
@@ -545,7 +537,7 @@ TestRS232:
 	lda acia+CDR
 	ora #$19			; mode=normal, transmit irq=off, RTS-level =low, enable/DTR=low
 	sta acia+CDR
-	lda #$0e			; baud rate 9600 / test byte count
+	lda #$0b			; baud rate 2400 / test byte count	******** PATCHED ********
 	sta temp2
 rs232lp:lda acia+CTR
 	and #$f0			; clear baud rate bits
@@ -839,7 +831,7 @@ tmrend:	jsr AddLine
 tmrbad:	jsr PrintBad			; print bad
 	jmp tmrend
 ; ----------------------------------------------------------------------------
-; test cia interrupts
+; test cia interrupt
 TestInterrupt:
 	ldx #>TextInterrupt
 	ldy #<TextInterrupt
@@ -882,7 +874,7 @@ TestInterrupt:
 	jsr isettod			; SUB: set TOD
 	jsr ienable			; SUB: enable ALARM interrupt
 	lda #1
-	jsr Delay			; delay sub 1x
+	jsr Delay			; delay sub 1x		******** PATCHED ********
 	jsr itxwait			; wait for interrupt
 	jsr PrintOK			; print ok
 	jsr AddLine
@@ -895,7 +887,7 @@ isettod:lda #$00
 	stx cia+TOD10			; set TOD to x 10th
 	rts
 ; test timer a,b interrupt
-itxtest:lda #$ff			; set timer to $5ff
+itxtest:lda #$ff			; set timer to $5ff	******** PATCHED ********
 	sta cia,y
 	iny
 	lda #$05
@@ -1088,7 +1080,7 @@ sndsub:	sta sid+OSC1+OSCCTL
 	sta sid+OSC1+SUSREL
 	sta sid+OSC3+OSCCTL
 	lda #1
-	jsr SoundDelay			; delay sub 0.5x
+	jsr SoundDelay			; delay sub 0.5x	******** PATCHED ********
 	lda #$00
 	sta sid+OSC1+OSCCTL
 	sta sid+OSC1+SUSREL
@@ -1297,7 +1289,7 @@ TextKernalRom:	!scr " KERNAL ROM      "
 TextKeypoard:	!scr " KEYBOARD        "
 TextIeeePort:	!scr " IEEE PORT       "
 TextUserPort:	!scr " USER PORT       "
-TextRS232:	!scr " RS-232          "
+TextRS232:	!scr " RS232 2400 BAUD "
 TextCassette:	!scr " CASSETTE        "
 TextSoundchip:	!scr " SOUND CHIP      "
 TextDram:	!scr " DRAM SEGMENT    "
