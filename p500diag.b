@@ -1,5 +1,5 @@
 ; p500 diagnostic-cart based on 324835-01
-; Vossi 05/2024
+; v. 1.0 Vossi 05/2024
 ; assemble with ACME
 !cpu 6502
 !ct scr		; standard text/char conversion table -> Screencode (pet = PETSCII, raw)
@@ -183,10 +183,10 @@ ram256: lda Title256,x			; title 256k
 	dex
 	bne ram256
 ; print version
-prver:	ldx #15
+prver:	ldx #11
 prverlp:lda TextVersion,x		; version
 	and #$bf
-	sta ScreenRAM+1*40+23,x
+	sta ScreenRAM+1*40+27,x
 	dex
 	bne prverlp
 ; print cycles
@@ -1158,8 +1158,8 @@ prbadlp:lda TextBad,y
 PrintDatabits:
 	jsr StoreDatabits		; store databits to $0010
 	jsr PrintBad			; print bad
-	lda #24
-	jsr AddChars			; add 35 chars
+	lda #22
+	jsr AddChars			; add 22 chars
 	ldx #>databits
 	ldy #<databits
 	lda #$07			; 8 bits
@@ -1267,18 +1267,18 @@ SoundDelay:
 ; ----------------------------------------------------------------------------
 ; print dram bad address
 PrintAddress:
-	lda #32
-	jsr AddChars			; add 31 chard
+	lda #30
+	jsr AddChars			; add 30 chard
 	ldx #>TextAddress
 	ldy #<TextAddress
-	lda #1
-	jsr PrintTexta			; print "address"
+	lda #4
+	jsr PrintTexta			; print "adr"
 	lda #35
-	jsr AddChars			; add 5 chars
+	jsr AddChars			; add 35 chars
 	lda pointer1+1
 	jsr PrintByteHex		; print low byte
 	lda #37
-	jsr AddChars			; add 57 chars
+	jsr AddChars			; add 37 chars
 	lda pointer1
 	jsr PrintByteHex		; print high byte
 	rts
@@ -1290,7 +1290,7 @@ Title128:	!scr " COMMODORE P500 (128K) DIAGNOSTIC VOSSI"
 
 TextCycles:	!scr "  CYCLE "
 Text000001:	!scr "  000001"
-TextVersion:	!scr " V. 1.0 (C) 2024"
+TextVersion:	!scr " V. 1.0 2024"
 
 TextZeropage:	!scr " ZEROPAGE        "
 TextStaticRam:	!scr " STATIC RAM 2KB  "	; enhanced full 2kB test
@@ -1309,7 +1309,7 @@ TextDram:	!scr " DRAM SEGMENT    "
 TextTimers:	!scr " TIMERS          "
 TextInterrupt:	!scr " INTERRUPT       "
 
-TextAddress:	!scr " @"
+TextAddress:	!scr " ADR:"
 
 TextOK:	!scr " OK "
 TextBad:!scr " BAD"
