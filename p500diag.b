@@ -1,5 +1,6 @@
 ; p500 diagnostic-cart based on 324835-01
 ; v. 1.0 Vossi 05/2024
+; v. 1.1 added dram bad flag to prevent printing ok if last byte ok
 ; assemble with ACME
 !cpu 6502
 !ct scr		; standard text/char conversion table -> Screencode (pet = PETSCII, raw)
@@ -90,6 +91,7 @@ VOLUME			= $18		; volume
 !addr temp3		= $09		; temp
 !addr pointer1		= $0a		; 16bit pointer
 !addr romsize		= $0c		; rom size in pages
+!addr dram_bad_flag	= $0f		; flag dram in section bad
 !addr pointer_screen	= $2a		; 16bit pointer screen text position
 !addr pointer_text	= $2c		; 16bit pointer text
 !addr pointer_screen2	= $2e		; 16bit pointer screen text position
@@ -964,6 +966,7 @@ banklp:	ldx #>TextDram
 	rts
 ; test dram bank
 testbnk:lda #$00
+	sta dram_bad_flag		; clear section bad flag
 	sta pointer1			; set start to $0000
 	sta pointer1+1
 	lda TestBank
@@ -1003,8 +1006,10 @@ dramct2:iny
 	bne dramlp2			; next page
 	lda #$0f
 	sta IndirectBank		; systembank
+	lda dram_bad_flag
+	bne drnotok			; skip if dram already bad
 	jsr PrintOK			; print bank ok
-	jsr AddLine
+drnotok:jsr AddLine
 	rts
 ; 
 da5bad:	jsr drambad
@@ -1014,6 +1019,7 @@ dadrbad:jsr drambad
 drambad:sty pointer1
 	sta temp1
 	lda #$0f
+	sta dram_bad_flag		; set bad flag
 	sta IndirectBank		; systembank
 	jsr PrintDatabits
 	jsr PrintAddress
