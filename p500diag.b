@@ -101,7 +101,7 @@ VOLUME			= $18		; volume
 *= $2000
 	jmp Start			; jump to start
 	jmp Start			; jump to start
-	!byte $43, $c2, $cd, "2"	; cbm-rom ident-bytes 'C'= without init, 'BM', '2' = 4k-block 2
+	!byte $43, $c2, $cd, '2'	; cbm-rom ident-bytes 'C'= without init, 'BM', '2' = 4k-block 2
 Start:	sei
 	lda #SYSTEMBANK
 	sta IndirectBank
@@ -133,7 +133,7 @@ VicInitValues:
 ; ----------------------------------------------------------------------------
 ; init
 Init:	ldx #$00			; init screen
-clrlp:  lda #" "
+clrlp:  lda #' '			; space
 	sta ScreenRAM,x
 	sta ScreenRAM+$100,x
 	sta ScreenRAM+$200,x
@@ -1232,7 +1232,7 @@ inc10:  inc ScreenRAM+1*40+10,x
 	bpl inc10			; next higher number
 	bmi IncCounterClearScreen	; max cycles -> endless loop
 clrscr:	ldx #$00
-	lda #" "			; clear screen from line 3
+	lda #' '			; clear screen from line 3
 clrsclp:sta ScreenRAM+2*40,x
 	sta ScreenRAM+$100,x
 	sta ScreenRAM+$200,x
