@@ -587,44 +587,44 @@ TestCassette:
 	ldy #<TextCassette
 	jsr PrintText			; print "cassette"
 	lda tpi1+DDPB
-	and #$7f
-	ora #$60
+	and #$7f			; PB7 input
+	ora #$60			; PB5+6 output
 	sta tpi1+DDPB
 	ldx #$10
-	stx cia+ICR
-	ldx cia+ICR
-	ldx #$04
-	lda tpi1+PB
-caslp:  ora #$60
+	stx cia+ICR			; enable FLAG irq
+	ldx cia+ICR			; clear
+	ldx #$04			; 4 loops
+	lda tpi1+PB			
+caslp:  ora #$60			; Motor = High (Motor off), Write = high
 	sta tpi1+PB
 	and #$df
 	pha
 	pla
-	sta tpi1+PB
+	sta tpi1+PB			; WRITE = low
 	pha
 	pla
 	dex
-	bne caslp
+	bne caslp			; repeat (4 lopps total)
 	lda #$f5
 caslp2:	adc #$01
-	bne caslp2
+	bne caslp2			; delay
 	lda tpi1+PB
-	and #$80
-	bne casbad
-	lda cia+ICR
-	and #$10
-	beq casbad
+	and #$80			; check SENSE
+	bne casbad			; SENSE = high -> error
+	lda cia+ICR			; load cia irq reg
+	and #$10			; isolate FLAG (cass read)
+	beq casbad			; FLAG = low -> error
 	lda tpi1+PB
-	and #$bf
+	and #$bf			; MOTOR = low (Motor on)
 	sta tpi1+PB
 	lda #$f5
 caslp3:	adc #$01
-	bne caslp3
+	bne caslp3			; delay
 	lda tpi1+PB
-	and #$80
-	beq casbad
+	and #$80			; check SENSE 
+	beq casbad			; SENSE = low -> error
 	lda tpi1+DDPB
-	and #$df
+	and #$df			; WRITE = input
 	sta tpi1+DDPB
 	jsr PrintOK			; print ok
 casend:	jsr AddLine
